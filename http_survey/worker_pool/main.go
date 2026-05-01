@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ZhdanovichVlad/go-katas/http_survey/cache.go/cache"
+	"github.com/ZhdanovichVlad/go-katas/http_survey/cache"
 )
 
 func main() {
@@ -98,9 +98,6 @@ func main() {
 
 	log.Println("shutdown complete")
 }
-
-
-
 
 type Getter interface {
 	Get(ctx context.Context, url string) int
