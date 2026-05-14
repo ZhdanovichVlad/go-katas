@@ -78,6 +78,7 @@ func main() {
 		start := time.Now()
 		results := semaphore.Survey(ctx, urls, 8, true)
 		//results := worker_pool.Survey(ctx, urls, 8, true)
+		
 
 		log.Printf("survey done: urls=%d results=%d elapsed=%s", len(urls), len(results), time.Since(start))
 
