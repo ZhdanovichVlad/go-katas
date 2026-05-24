@@ -3,11 +3,10 @@ package bench_test
 import (
 	"context"
 	"fmt"
-	"slices"
 	"testing"
 
-	"github.com/ZhdanovichVlad/go-katas/http_survey/semaphore"
-	"github.com/ZhdanovichVlad/go-katas/http_survey/worker_pool"
+	"github.com/ZhdanovichVlad/go-katas/http_survey/internal/semaphore"
+	"github.com/ZhdanovichVlad/go-katas/http_survey/internal/workerpool"
 )
 
 // surveyFn — общий контракт обеих реализаций.
@@ -20,7 +19,20 @@ var implementations = []struct {
 	fn   surveyFn
 }{
 	{"semaphore", semaphore.Survey},
-	{"worker_pool", worker_pool.Survey},
+	{"workerpool", workerpool.Survey},
+}
+
+var mockStatusCodes = map[int]struct{}{
+	200: {},
+	201: {},
+	202: {},
+	204: {},
+	400: {},
+	401: {},
+	403: {},
+	404: {},
+	500: {},
+	503: {},
 }
 
 // makeURLs возвращает n урлов, среди которых ровно `unique` различных.
@@ -34,6 +46,20 @@ func makeURLs(n, unique int) []string {
 		urls[i] = fmt.Sprintf("https://example.test/%d", i%unique)
 	}
 	return urls
+}
+
+func assertMockResult(t *testing.T, got []int, wantLen int) {
+	t.Helper()
+
+	if len(got) != wantLen {
+		t.Fatalf("len(got) = %d, want %d", len(got), wantLen)
+	}
+
+	for i, code := range got {
+		if _, ok := mockStatusCodes[code]; !ok {
+			t.Errorf("got[%d] = %d, want one of mock status codes", i, code)
+		}
+	}
 }
 
 // TestSurveyCorrectness — табличный тест: длина результата и значения статусов
@@ -57,32 +83,24 @@ func TestSurveyCorrectness(t *testing.T) {
 		for _, c := range cases {
 			t.Run(impl.name+"/"+c.name, func(t *testing.T) {
 				got := impl.fn(context.Background(), c.urls, c.parallel, true)
-				if len(got) != c.want {
-					t.Fatalf("len(got) = %d, want %d", len(got), c.want)
-				}
-				for i, code := range got {
-					if code != 200 {
-						t.Errorf("got[%d] = %d, want 200", i, code)
-					}
-				}
+				assertMockResult(t, got, c.want)
 			})
 		}
 	}
 }
 
-// TestSurveyEquivalence проверяет, что обе реализации возвращают
-// один и тот же срез статусов на одинаковом входе.
-// Порядок гарантируется контрактом Survey ("вернет статусы в том же порядке,
-// в котором они были переданы"), поэтому сравнение строгое — slices.Equal.
-func TestSurveyEquivalence(t *testing.T) {
+// TestSurveyImplementationsContract проверяет общий контракт обеих реализаций.
+// Mock-клиент возвращает случайные HTTP-коды, поэтому реализации не обязаны
+// возвращать побитово одинаковые срезы на разных запусках.
+func TestSurveyImplementationsContract(t *testing.T) {
 	urls := makeURLs(50, 10)
 	ctx := context.Background()
 
-	gotSem := semaphore.Survey(ctx, urls, 8, true)
-	gotWP := worker_pool.Survey(ctx, urls, 8, true)
-
-	if !slices.Equal(gotSem, gotWP) {
-		t.Errorf("результаты различаются:\n sem=%v\n wp =%v", gotSem, gotWP)
+	for _, impl := range implementations {
+		t.Run(impl.name, func(t *testing.T) {
+			got := impl.fn(ctx, urls, 8, true)
+			assertMockResult(t, got, len(urls))
+		})
 	}
 }
 
@@ -91,10 +109,10 @@ func TestSurveyEquivalence(t *testing.T) {
 //   - доля уникальных (управление процентом кеш-хитов),
 //   - уровень параллелизма.
 //
-// ВАЖНО: мок http_client спит 1ms на каждый Get — поэтому абсолютные числа
+// ВАЖНО: мок client спит 100ms на каждый Get — поэтому абсолютные числа
 // в первую очередь отражают latency мока, а не «чистый» оверхед примитивов
 // синхронизации. Сравнивать имеет смысл relative-разницу между semaphore
-// и worker_pool в одной и той же ячейке матрицы.
+// и workerpool в одной и той же ячейке матрицы.
 func BenchmarkSurvey(b *testing.B) {
 	type cfg struct {
 		urls     int
