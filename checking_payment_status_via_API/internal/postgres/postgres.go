@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"github.com/lib/pq"
 
@@ -28,7 +27,7 @@ func (s *storage) GetPendingPaymentsAndLockRows(ctx context.Context) ([]string, 
 	stmt, err := tx.PrepareContext(ctx, `
 	SELECT vendor_tx_id
 	FROM payments
-	WHERE status = 'pending_vendor' AND is_locked = FALSE
+	WHERE status = 'pending_vendor' AND (is_locked = FALSE OR locked_at < now() - interval '1 hour') 
 	order by updated_at
 	Limit 10
 	FOR UPDATE SKIP LOCKED
@@ -99,45 +98,4 @@ func (s *storage) UpdatePaymentStatusAndUnlockRows(ctx context.Context, vendorTx
 	}
 	return nil
 
-}
-
-func (s *storage) GetStackRows(ctx context.Context) ([]string, error) {
-	stmt, err := s.db.PrepareContext(ctx, `
-	SELECT vendor_tx_id
-	FROM payments
-	WHERE status = 'pending_vendor' AND is_locked = TRUE AND time_locked < ($1)
-	order by updated_at
-	Limit 10
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
-
-	rows, err := stmt.QueryContext(ctx, time.Now().Add(-5*time.Minute))
-	defer rows.Close()
-
-	var batch []string
-
-	for rows.Next() {
-
-		var p string
-
-		if err := rows.Scan(&p); err != nil {
-
-			return nil, err
-
-		}
-
-		batch = append(batch, p)
-
-	}
-
-	if err := rows.Err(); err != nil {
-
-		return nil, err
-
-	}
-
-	return batch, nil
 }
