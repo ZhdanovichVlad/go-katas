@@ -1,0 +1,53 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/bin/
+/dist/
+
+# Go / coverage
+*.cover
+*.coverprofile
+coverage.out
+coverage.html
+profile.cov
+vendor/
+
+# pprof & profiling (do not commit)
+cpu.out
+mem.out
+*.pprof
+*.prof
+*.gp
+
+# Benchstat dumps / local benchmark logs (machine-specific)
+new.txt
+old.txt
+bench.txt
+*.bench.txt
+
+# IDE / editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Obsidian (если репо лежит внутри vault)
+.obsidian/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+credentials.json
